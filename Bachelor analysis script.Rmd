@@ -1,0 +1,221 @@
+---
+title: "Bachelor analysis"
+author: "Maria"
+date: "28/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+```
+
+Packages
+
+```{r}
+#load packages
+pacman::p_load(tidyverse, lme4, lmerTest)
+
+```
+
+Load data
+
+```{r}
+#read experimental data
+pavlovia <- list.files(path = " ",  
+                       pattern = "*.csv") %>% 
+  map_df(~read_csv(.))
+
+#read survey data
+qual <- read_csv(" ")  
+
+# qual <- read.csv("spørgeskema.csv", fileEncoding = "UTF-8", na.strings = c("", "NA")) %>% 
+#   subset(EndDate != " ") #remove ourselves?
+
+```
+
+Merge data
+
+```{r}
+#merge pavlovia and survey
+merged <- merge(pavlovia, qual)
+
+```
+
+Clean dataframe
+
+```{r}
+#read full dataframe
+df <- merged %>% 
+  filter(anagrammer != "REMOVE" | is.na(anagrammer)) #remove false anagrams but keep trials without anagrams
+
+#remove participants and trials based on exclusion criteria and errors
+df <- subset(df, !is.na(df$RT)) %>% #remove missing reaction times
+  subset(Att_disease != "Ja") %>% #remove attentional disorders
+  subset(Pregnant != "Ja") %>% #remove recent pregnancy 
+  subset(Hormonal_disease != "Ja") #remove hormonal diseases
+
+#keep only relevant columns
+df <- subset(df, select = c(id, anagram_answer, RT, anagrammer, correct, IQ_response.keys, IQ_response.corr, options, correctIQanswer, Gender, Age, HC_use, HC_ever, HC_time, Time_since_use, Previous_HC_Time, HC_type, HC_type_8_TEXT, Brand, Generation, Pregnant, Hormonal_disease, Days_since_last_mens, Length_of_cycle, Prediction_ability_1, Att_disease, Dyslexic, Education, IQ_abilities_1, IQ_abilities_2, IQ_abilities_3 )) #more need to be added
+
+```
+
+Make column for accuracy 
+
+```{r}
+#code accuracy column for both tasks
+df <- df %>% 
+  mutate(anagram_answer = ifelse(is.na(anagram_answer), "wrong", anagram_answer)) %>% #NAs count as wrong answers
+  mutate(anagram_accuracy = ifelse(anagram_answer == correct, 1, 0)) %>% #1 for correct solutions, 0 for incorrect (referring to correct column)
+  mutate(anagram_accuracy = ifelse(anagram_answer == "andre ord vi vil godkende?", 1, anagram_accuracy)) %>% #accept this as correct
+  mutate(overall_accuracy = anagram_accuracy) %>% #copy the anagram accuracy to the overall accuracy
+  mutate(overall_accuracy = ifelse(is.na(overall_accuracy), IQ_response.corr, anagram_accuracy)) %>% #add the IQ accuracy where we have missing info 
+  mutate(overall_accuracy = ifelse(is.na(overall_accuracy), 0, overall_accuracy))
+
+
+```
+
+Make column for menstrual cycle
+
+```{r}
+#fix class
+df <- df %>% 
+  mutate(Days_since_last_mens = as.numeric(Days_since_last_mens)) %>% #numeric
+  mutate(Length_of_cycle = as.numeric(Length_of_cycle)) #numeric
+         
+#calculate percentage and menstrual phases (rough estimate)
+df <- df %>% 
+  mutate(Percentage_cycle = (Days_since_last_mens/Length_of_cycle)*100) %>% #how far along in menstrual cycle
+  mutate(Menstrual_phase = ifelse(Percentage_cycle >= 0 & Percentage_cycle <= 45, "follicular phase", NA)) %>%  #follicular phase
+  mutate(Menstrual_phase = ifelse(Percentage_cycle > 45 & Percentage_cycle <= 55, "ovulation", Menstrual_phase)) %>%  #ovulation 
+  mutate(Menstrual_phase = ifelse(Percentage_cycle > 55, "luteal phase", Menstrual_phase)) %>%  #luteal phase
+  mutate(Menstrual_phase = ifelse(is.na(Menstrual_phase), "hormonal group", Menstrual_phase)) #add the hormonal group to avoid NAs
+
+```
+
+Make column for task type
+
+```{r}
+df <- df %>% 
+  mutate(Task = ifelse(is.na(anagram_accuracy), "IQ", "anagram")) #make task column
+  
+```
+
+Fix spelling or shorten answers
+
+```{r}
+
+#shorten education names
+df <- df %>% 
+  mutate(Education = ifelse(Education == "Kort videregående uddannelse (fx erhvervsuddannelse på 2 år inkl praktik)", "Kort", Education)) %>% 
+  mutate(Education = ifelse(Education == "Mellemlang videregående uddannelse (fx bachelor)", "Mellemlang", Education)) %>% 
+  mutate(Education = ifelse(Education == "Lang videregående uddannelse (fx kandidat el. PhD)", "Lang", Education)) %>% 
+  mutate(Education = ifelse(Education == "Anden uddannelse (under 2 år)", "Anden kort", Education)) %>% 
+  mutate(Education = as.factor(Education))
+
+```
+
+Define lower + upper limit and round RT
+
+```{r}
+df <- df %>% 
+  mutate(RT = round(RT, digits = 5)) %>% 
+  #mutate(AVG_IQ_Ability = round(AVG_IQ_Ability, digits = 2)) %>% 
+  subset(RT >= 1) %>% #exclude unrealistic response times
+  mutate(RT = ifelse(RT >= 600, 600, RT)) #define an upper limit of 10 minutes 
+  
+```
+
+
+Summarize Participants
+
+```{r}
+#summarizing stats
+merged %>%
+  group_by(HC_use) %>%
+  dplyr::summarise(participants = length(unique(id)))
+#started out with xx participants, of whom xx were on HC and xx were not. 
+
+merged %>%
+  group_by(Att_disease) %>%
+  dplyr::summarise(participants = length(unique(id)))
+#xx sorted out bcs of ADHD etc
+
+merged %>%
+  group_by(Hormonal_disease) %>%
+  dplyr::summarise(participants = length(unique(id)))
+#xx sorted out bcs of hormonal diseases
+
+merged %>%
+  group_by(Pregnant) %>%
+  dplyr::summarise(participants = length(unique(id)))
+#xx sorted out due to either pregnancy or breastfeeding
+```
+
+Distribution check
+
+```{r}
+#density distributions for time and accuracy 
+dens(df$RT) #log-normal?
+dens(df$overall_accuracy) #binomial?
+
+```
+
+Fix classes and relevel
+
+```{r}
+
+class(df$HC_use)
+levels(df$HC_use)
+
+#fix classes
+df <- df %>% 
+  mutate(HC_use = as.factor(HC_use)) %>% #make into factor
+  mutate(HC_type = as.factor(HC_type)) %>% #make into factor
+  mutate(Task = as.factor(Task))  #make into factor
+
+
+#fix education levels
+df$Education <- factor(df$Education, levels = c("Folkeskole", "Gymnasiel uddannelse", "Anden kort", "Kort", "Mellemlang", "Lang"))
+
+#fix HC levels
+df$HC_use <- factor(df$HC_use, levels = c("Nej", "Ja"))
+
+
+```
+
+Modelling
+
+```{r}
+#syntax test
+accuracy_m <- glmer(overall_accuracy ~ HC_use + (1 | Menstrual_phase:id ), data = df, family=binomial)
+
+RT_m <- lmerTest::lmer(RT ~ HC_use + Menstrual_phase + (1 | Menstrual_phase:id), data = df) 
+
+#lognormal family apparently not an option in the family argument ??? kan være vi bare skal logtransformere inden og så køre almindelig gaussian 
+# https://stats.stackexchange.com/questions/21447/how-to-specify-a-lognormal-distribution-in-the-glm-family-argument-in-r
+
+# binomial(link = "logit")
+# gaussian(link = "identity")
+# Gamma(link = "inverse")
+# inverse.gaussian(link = "1/mu^2")
+# poisson(link = "log")
+# quasi(link = "identity", variance = "constant")
+# quasibinomial(link = "logit")
+# quasipoisson(link = "log")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
