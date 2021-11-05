@@ -21,17 +21,15 @@ Load data
 
 ```{r}
 #read experimental data (run in one go)
-setwd("")
+setwd("C:/Users/maria/OneDrive/Dokumenter/Uni/Bachelor/Bachelor Analysis/Test-data-til-bachelor")
 
-pavlovia <- list.files(path = "",  
+pavlovia <- list.files(path = "C:/Users/maria/OneDrive/Dokumenter/Uni/Bachelor/Bachelor Analysis/Test-data-til-bachelor",  
                        pattern = "*.csv") %>% 
   map_df(~read_csv(.))
 
 
-
-
 #read survey data
-qual <- read_csv(" ")  
+qual <- read_csv("B21-HC full_November 5, 2021_02.11.csv")  
 
 # qual <- read.csv("spørgeskema.csv", fileEncoding = "UTF-8", na.strings = c("", "NA")) %>% 
 #   subset(EndDate != " ") #remove ourselves?
@@ -44,6 +42,8 @@ Merge data
 #merge pavlovia and survey
 merged <- merge(pavlovia, qual)
 
+#write_csv(merged, "merged.csv")
+
 ```
 
 Clean dataframe
@@ -51,7 +51,7 @@ Clean dataframe
 ```{r}
 #read full dataframe
 df <- merged %>% 
-  filter(anagrammer != "REMOVE" | is.na(anagrammer)) #remove false anagrams but keep trials without anagrams
+  filter(anagrams != "REMOVE" | is.na(anagrams)) #remove false anagrams but keep trials without anagrams
 
 #remove participants and trials based on exclusion criteria and errors
 df <- subset(df, !is.na(df$RT)) %>% #remove missing reaction times
@@ -60,7 +60,7 @@ df <- subset(df, !is.na(df$RT)) %>% #remove missing reaction times
   subset(Hormonal_disease != "Ja") #remove hormonal diseases
 
 #keep only relevant columns
-df <- subset(df, select = c(id, anagram_answer, RT, anagrammer, correct, IQ_response.keys, IQ_response.corr, options, correctIQanswer, Gender, Age, HC_use, HC_ever, HC_time, Time_since_use, Previous_HC_Time, HC_type, HC_type_8_TEXT, Brand, Generation, Pregnant, Hormonal_disease, Days_since_last_mens, Length_of_cycle, Prediction_ability_1, Att_disease, Dyslexic, Education, IQ_abilities_1, IQ_abilities_2, IQ_abilities_3 )) #more need to be added
+df <- subset(df, select = c(id, anagram_answer, RT, anagrams, correct, IQresponse.keys, IQresponse.corr, options, CorrectIQ, Gender, Age_1, HC_use, HC_ever, HC_time, Time_since_use, Previous_HC_Time, HC_type, HC_type_8_TEXT, Brand, Generation, Pregnant, Hormonal_disease, Days_since_last_mens, Length_of_cycle, Prediction_ability_1, Att_disease, Dyslexic, Education, IQ_abilities_1, IQ_abilities_2, IQ_abilities_3, Difficulty_1, Difficulty_2, Social_setting, Height_1, Weight_1, OC_cycle, IUD, IUD_time_1, previous_HC, previous_HC_type, why_change_HC, Previous_HC_cancel, HC_sideeffects, Sexuality, Sexual_orientation, Partner, Children, Psych_comorbidity, Medication_depress, Medication_anxiety, Smoking, Alcohol_use, Alcohol_weekly, Alcohol_craving_1, Alcohol_crav_1, Alcohol_crav_2, Alcohol_crav_3, Alcohol_crav_4, Alcohol_crav_5, Alcohol_crav_6, Alcohol_crav_7, Alcohol_crav_8, Alcohol_crav_9, Alcohol_crav_10, Alcohol_crav_11, Alcohol_crav_12, Alcohol_audit1, Alcohol_audit2,Alcohol_audit3, Alcohol_audit4,Alcohol_audit5,Alcohol_audit6,Alcohol_audit7,Alcohol_audit8,Alcohol_audit9,Alcohol_audit10)) #tror det er det hele
 
 ```
 
