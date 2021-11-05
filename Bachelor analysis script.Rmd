@@ -20,10 +20,15 @@ pacman::p_load(tidyverse, lme4, lmerTest)
 Load data
 
 ```{r}
-#read experimental data
-pavlovia <- list.files(path = " ",  
+#read experimental data (run in one go)
+setwd("")
+
+pavlovia <- list.files(path = "",  
                        pattern = "*.csv") %>% 
   map_df(~read_csv(.))
+
+
+
 
 #read survey data
 qual <- read_csv(" ")  
