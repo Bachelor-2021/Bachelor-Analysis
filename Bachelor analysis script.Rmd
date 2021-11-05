@@ -15,6 +15,7 @@ Packages
 #load packages
 pacman::p_load(tidyverse, lme4, lmerTest)
 
+
 ```
 
 Load data
@@ -26,15 +27,15 @@ setwd("C:/Users/maria/OneDrive/Dokumenter/Uni/Bachelor/Bachelor Analysis/Test-da
 pavlovia <- list.files(path = "C:/Users/maria/OneDrive/Dokumenter/Uni/Bachelor/Bachelor Analysis/Test-data-til-bachelor",  
                        pattern = "*.csv") %>% 
   map_df(~read_csv(.))
+```
 
 
+```{r}
 #read survey data
 qual <- read_csv("B21-HC full_November 5, 2021_02.11.csv")  
 
-# qual <- read.csv("spørgeskema.csv", fileEncoding = "UTF-8", na.strings = c("", "NA")) %>% 
-#   subset(EndDate != " ") #remove ourselves?
-
 ```
+
 Fix the same IDs
 
 ```{r}
@@ -85,7 +86,7 @@ pavlovia <- rbind(pavlovia, id_8024_1)
 
 
 #----------
-#again separate participants with the same randomly generated ID 
+#again separate participants with the same randomly generated ID but in the qualtrics dataframes
 qual16727_1 <- qual %>% 
   filter(id == "16727") %>% 
   filter(RecordedDate == "2021-11-04 09:35:31") %>% 
@@ -107,7 +108,7 @@ qual8024_2 <- qual %>%
   filter(RecordedDate == "2021-10-25 08:34:42") %>% 
   mutate(id = ifelse(id == 8024, 444444, NA)) #give new id
 
-#filter out participant from survey dataframe
+#filter out participants from survey dataframe
 qual <- qual %>% 
   filter(id != "16727") %>% 
   filter(id != "8024")
@@ -141,14 +142,18 @@ Clean dataframe
 df <- merged %>% 
   filter(anagrams != "remove" | is.na(anagrams)) #remove false anagrams but keep trials without anagrams
 
+
+
 #remove participants and trials based on exclusion criteria and errors
 df <- subset(df, !is.na(df$RT)) %>% #remove missing reaction times
   subset(Att_disease != "Ja") %>% #remove attentional disorders
   subset(Pregnant != "Ja") %>% #remove recent pregnancy 
   subset(Hormonal_disease != "Ja") %>% #remove hormonal diseases
-  subset(HC_time != "Under 3 måneder") %>% 
+  #subset(HC_time == "Under 3 måneder") %>% #try to fix this
   subset(Age_1 < 40) %>% 
   subset(Gender != "Mand")
+
+levels(as.factor(df$HC_time))
 
 #keep only relevant columns
 df <- subset(df, select = c(id, anagram_answer, RT, anagrams, correct, IQresponse.keys, IQresponse.corr, options, CorrectIQ, Gender, Age_1, HC_use, HC_ever, HC_time, Time_since_use, Previous_HC_Time, HC_type, HC_type_8_TEXT, Brand, Generation, Pregnant, Hormonal_disease, Days_since_last_mens, Length_of_cycle, Prediction_ability_1, Att_disease, Dyslexic, Education, IQ_abilities_1, IQ_abilities_2, IQ_abilities_3, Difficulty_1, Difficulty_2, Social_setting, Height_1, Weight_1, OC_cycle, IUD, IUD_time_1, previous_HC, previous_HC_type, why_change_HC, Previous_HC_cancel, HC_sideeffects, Sexuality, Sexual_orientation, Partner, Children, Psych_comorbidity, Medication_depress, Medication_anxiety, Smoking, Alcohol_use, Alcohol_weekly, Alcohol_craving_1, Alcohol_crav_1, Alcohol_crav_2, Alcohol_crav_3, Alcohol_crav_4, Alcohol_crav_5, Alcohol_crav_6, Alcohol_crav_7, Alcohol_crav_8, Alcohol_crav_9, Alcohol_crav_10, Alcohol_crav_11, Alcohol_crav_12, Alcohol_audit1, Alcohol_audit2,Alcohol_audit3, Alcohol_audit4,Alcohol_audit5,Alcohol_audit6,Alcohol_audit7,Alcohol_audit8,Alcohol_audit9,Alcohol_audit10)) #tror det er det hele
@@ -199,50 +204,44 @@ df <- df %>%
 ```
 
 Fix spelling 
+
 ```{r}
 #correcting spelling mistakes etc in the brand column
-merged$Brand[merged$Brand == "2"] <- NA
-merged$Brand[merged$Brand == "2 gen"] <- NA
-merged$Brand[merged$Brand == "2 generation"] <- NA
-merged$Brand[merged$Brand == "2."] <- NA
-merged$Brand[merged$Brand == "2. generation"] <- NA
-merged$Brand[merged$Brand == "2 generation Malonetta"] <- "Malonetta"
-merged$Brand[merged$Brand == "2. generations - Microgyn"] <- "Microgyn"
-merged$Brand[merged$Brand == "2. generations p-piller (femicept)"] <- "Femicept"
-merged$Brand[merged$Brand == "2. Generations, Microgyn (Stoppede på p-piller for 6 år siden))"] <- "Microgyn"
-merged$Brand[merged$Brand == "2. genration Femicept"] <- "Femicept"
+df$Brand[df$Brand == "2"] <- NA
+df$Brand[df$Brand == "2 gen"] <- NA
+df$Brand[df$Brand == "2 generation"] <- NA
+df$Brand[df$Brand == "2."] <- NA
+df$Brand[df$Brand == "2. generation"] <- NA
+df$Brand[df$Brand == "2 generation Malonetta"] <- "Malonetta"
+df$Brand[df$Brand == "2. generations - Microgyn"] <- "Microgyn"
+df$Brand[df$Brand == "2. generations p-piller (femicept)"] <- "Femicept"
+df$Brand[df$Brand == "2. Generations, Microgyn (Stoppede på p-piller for 6 år siden))"] <- "Microgyn"
+df$Brand[df$Brand == "2. genration Femicept"] <- "Femicept"
 
-merged$Brand[merged$Brand == "3. generation"] <- NA
-merged$Brand[merged$Brand == "Anastella"] <- "Anastrella"
-merged$Brand[merged$Brand == "anastrella"] <- "Anastrella"
-merged$Brand[merged$Brand == "femicept"] <- "Femicept"
-merged$Brand[merged$Brand == "cilest"] <- "Cilest"
+df$Brand[df$Brand == "3. generation"] <- NA
+df$Brand[df$Brand == "Anastella"] <- "Anastrella"
+df$Brand[df$Brand == "anastrella"] <- "Anastrella"
+df$Brand[df$Brand == "femicept"] <- "Femicept"
+df$Brand[df$Brand == "cilest"] <- "Cilest"
 
-merged$Brand[merged$Brand == "Det er over 10 år siden
-"] <- NA
-merged$Brand[merged$Brand == "Femicept, Mirabella (2. generation)
-"] <- "Femicept"
-merged$Brand[merged$Brand == "fik altid de billigste. ved ikke hvilket mærke det er flere år siden
-"] <- NA
-merged$Brand[merged$Brand == "Gestinyl lyder bekendt (mere end 4 år siden)
-"] <- NA
-merged$Brand[merged$Brand == "leverette"] <- "Leverette 21"
-merged$Brand[merged$Brand == "Leverette 21 (indeholder levonorgestrel./ethinylestradiol
-"] <- "Leverette 21"
-merged$Brand[merged$Brand == "Leverette 21 Ethinylestr + Levonorgest"] <- "Leverette 21"
+df$Brand[df$Brand == "Det er over 10 år siden"] <- NA
+df$Brand[df$Brand == "Femicept, Mirabella (2. generation)"] <- "Femicept"
+df$Brand[df$Brand == "fik altid de billigste. ved ikke hvilket mærke det er flere år siden"] <- NA
+df$Brand[df$Brand == "Gestinyl lyder bekendt (mere end 4 år siden)"] <- NA
+df$Brand[df$Brand == "leverette"] <- "Leverette 21"
+df$Brand[df$Brand == "Leverette 21 (indeholder levonorgestrel./ethinylestradiol"] <- "Leverette 21"
+df$Brand[df$Brand == "Leverette 21 Ethinylestr + Levonorgest"] <- "Leverette 21"
 
-merged$Brand[merged$Brand == "malonetta"] <- "Malonetta"
-merged$Brand[merged$Brand == "Malonetta, 2. generations"] <- "Malonetta"
-merged$Brand[merged$Brand == "melonetta"] <- "Malonetta"
-merged$Brand[merged$Brand == "2. generation Malonetta"] <- "Malonetta"
+df$Brand[df$Brand == "malonetta"] <- "Malonetta"
+df$Brand[df$Brand == "Malonetta, 2. generations"] <- "Malonetta"
+df$Brand[df$Brand == "melonetta"] <- "Malonetta"
+df$Brand[df$Brand == "2. generation Malonetta"] <- "Malonetta"
 ```
 
 
 Shorten answers
 
 ```{r}
-
-
 #shorten education names
 df <- df %>% 
   mutate(Education = ifelse(Education == "Kort videregående uddannelse (fx erhvervsuddannelse på 2 år inkl praktik)", "Kort", Education)) %>% 
@@ -257,6 +256,16 @@ df <- df %>%
   mutate(OC_cycle = ifelse(OC_cycle == "Ja, jeg har taget eller skal tage min p-pille i dag", "Aktiv pille-dag", OC_cycle)) %>% 
   mutate(OC_cycle = ifelse(OC_cycle == "Nej, jeg holder pause mellem to pakker lige nu", "Pause", OC_cycle)) %>% 
   mutate(OC_cycle = ifelse(OC_cycle == "Jeg er for nyligt helt stoppet på p-piller", "Pause", OC_cycle)) #feedback fra personen sagde at de lige var stoppet sidste uge
+```
+
+Er lidt i tvivl om vi reelt skal gøre det på den måde
+```{r}
+#HC generation + brand 
+# df <- df %>% 
+#   mutate(Generation = ifelse(HC_type == "Hormonspiral", "Hormonspiral", Generation)) %>% #add different HC groups to generation column
+#   mutate(Generation = ifelse(HC_type == "Mini-piller", "Mini-piller", Generation)) %>% #same as above
+#   mutate(Brand = ifelse(HC_type == "Hormonspiral", "Hormonspiral", Brand)) %>% #add different HC groups to brand column
+#   mutate(Brand = ifelse(HC_type == "Mini-piller", "Mini-piller", Brand)) #same as above
 
 ```
 
@@ -276,7 +285,7 @@ Summarize Participants
 
 ```{r}
 #summarizing stats
-merged %>%
+df %>%
   group_by(HC_use) %>%
   dplyr::summarise(participants = length(unique(id)))
 #started out with xx participants, of whom xx were on HC and xx were not. 
@@ -301,6 +310,11 @@ merged %>%
   dplyr::summarise(participants = length(unique(id)))
 #xx sorted out due to either pregnancy or breastfeeding
 
+df %>%
+  group_by(Alcohol_craving_1) %>%
+  dplyr::summarise(participants = length(unique(id)))
+#xx sorted out due to either pregnancy or breastfeeding
+
 #check to see if participants have the same id
 df %>%
   group_by(id) %>%
@@ -313,9 +327,8 @@ Distribution check
 
 
 ```{r}
-#density distributions for time and accuracy 
+#density distributions for time  
 dens(df$RT) #log-normal?
-dens(df$overall_accuracy) #binomial?
 
 ```
 
