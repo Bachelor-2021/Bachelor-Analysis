@@ -1,0 +1,324 @@
+---
+title: "Bachelor Modelling"
+author: "Maria"
+date: "11/23/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+#packages
+pacman::p_load(tidyverse, lme4, lmerTest, rethinking)
+
+#read the cleaned dataframe
+# df <- read_csv("clean_bachelor.csv")
+
+```
+
+Density check
+
+```{r}
+dens(df$RT) #inverse gaussian (inverse.gaussian)
+dens(df$overall_accuracy) #binomial 
+
+```
+
+
+```{r}
+m0mens <- lmer(logRT ~ 0 + Menstrual_phase +(1|id), data = df)
+summary(m1)
+
+exp(3.86920)
+exp(3.64293)
+exp(3.49579)
+exp(3.52206)
+
+# [1] 47.90405
+# [1] 38.20361
+# [1] 32.97633
+# [1] 33.8541
+
+m0soc <- lmer(logRT ~ 0 + Social_setting +(1|id), data = df)
+summary(m2)
+
+exp(3.66602)
+exp(3.64875)
+
+# [1] 39.09599
+# [1] 38.4266
+
+```
+
+
+Modelling
+* = low AIC contender
+x = fails to converge
+s = boundary (singular) fit
+
+```{r}
+
+
+m1 <- lmer(logRT ~ 1 + HC_use + (1 |id), data = df)
+m2 <- lmer(logRT ~ 1 + HC_use + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+m3 <- lmer(logRT ~ 1 + HC_use + (1 |HC_type:id) + (1|HC_type), data = df)
+m4 <- lmer(logRT ~ 1 + HC_use + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+AIC(m1, m2, m3, m4) 
+# m1	8327.720		
+# m2	8328.726 x	
+# m3	7420.882 s*	
+# m4	7424.249 s*
+
+m5 <- lmer(logRT ~ 1 + HC_use + Education + (1 |id), data = df)
+m6 <- lmer(logRT ~ 1 + HC_use + Education + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+m7 <- lmer(logRT ~ 1 + HC_use + Education + (1 |HC_type:id) + (1|HC_type), data = df)
+m8 <- lmer(logRT ~ 1 + HC_use + Education + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+AIC(m5, m6, m7, m8)
+# m5	8317.936		
+# m6	8318.777		
+# m7	7410.317 s*	
+# m8	7413.366 x*
+
+
+m9 <- lmer(logRT ~ 1 + HC_use + Age_1 + (1 |id), data = df)
+m10 <- lmer(logRT ~ 1 + HC_use + Age_1 + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+m11 <- lmer(logRT ~ 1 + HC_use + Age_1 + (1 |HC_type:id) + (1|HC_type), data = df)
+m12 <- lmer(logRT ~ 1 + HC_use + Age_1 + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+AIC(m9, m10, m11, m12)
+# m9	8340.146		
+# m10	8342.093		
+# m11	7434.342 s		
+# m12	7438.340 x
+
+m13 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + (1 |id), data = df)
+m14 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+m15 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + (1 |HC_type:id) + (1|HC_type), data = df)
+m16 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+m164 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting +Menstrual_phase + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+AIC(m13, m14, m15, m16)
+# m13	8321.903		
+# m14	8322.519		
+# m15	7413.582 s*		
+# m16 7416.277 s*		
+
+
+m17 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting +(1 |id), data = df)
+m18 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting +(1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+m19 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting + (1 |HC_type:id) + (1|HC_type), data = df)
+m20 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+AIC(m17, m18, m19, m20)
+# m17	8343.896		
+# m18	8345.804		
+# m19	7437.783 s	
+# m20	7441.753 x	
+
+m21 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + Task + (1 |id), data = df)
+m22 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+m23 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + Task + (1 |HC_type:id) + (1|HC_type), data = df)
+m24 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+AIC(m21, m22, m23, m24)
+# m21	8315.822		
+# m22	8316.392		
+# m23	7399.084 s*	
+# m24	7401.677 s*
+
+m25 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting + Task +(1 |id), data = df)
+m26 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting + Task +(1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+m27 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting + Task + (1 |HC_type:id) + (1|HC_type), data = df)
+m28 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting +Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+AIC(m25, m26, m27, m28)
+# m25	8338.427		
+# m26	8340.332		
+# m27	7424.043 s*		
+# m28	7428.011 x
+
+m29 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 |id), data = df)
+m30 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+m31 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 |HC_type:id) + (1|HC_type), data = df)
+m32 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+AIC(m29, m30, m31, m32)
+# m29	8311.848 		
+# m30	8312.643 	
+# m31	7395.788 s*		
+# m32	7398.740 x*
+
+m33 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 |id), data = df)
+m34 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+m35 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 |HC_type:id) + (1|HC_type), data = df)
+m36 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+AIC(m33, m34, m35, m36)
+# m33	8334.663		
+# m34	8336.605		
+# m35	7420.559 s		
+# m36	7424.555 x	
+
+m37 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 + Task |id), data = df)
+m38 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 + Task |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+m39 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 + Task |HC_type:id) + (1|HC_type), data = df)
+m40 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 + Task |Menstrual_phase:id) + (1|Menstrual_phase) + (1 + Task |HC_type:id) + (1|HC_type), data = df)
+
+AIC(m37, m38, m39, m40)
+# m37	8236.832		
+# m38	8236.208		
+# m39	7344.895 s*		
+# m40	7350.252 x	
+
+m41 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 + Task |id), data = df)
+m42 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 + Task |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+m43 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 + Task |HC_type:id) + (1|HC_type), data = df)
+m44 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 + Task |Menstrual_phase:id) + (1|Menstrual_phase) + (1 + Task |HC_type:id) + (1|HC_type), data = df)
+
+AIC(m41, m42, m43, m44)
+# m41	8260.838		
+# m42	8262.453		
+# m43	7371.310 s*		
+# m44	7378.720 s*	
+
+#top contenders AIC that actually run as they should:
+AIC(m5, m13, m14, m21, m22, m30, m37, m38, m41, m42)
+#m30 eller m38?
+```
+
+
+```{r}
+# class(newdf$HC_type)
+# levels(df$Task)
+# 
+# #df$id <- as.numeric(as.factor(df$id))
+# 
+# df <- df %>% 
+#   mutate(Scaled_RT = scale(RT, center = F)) %>% 
+#   mutate(logRT = log(RT)) %>% 
+#   subset(id != 13149)
+# 
+# newdf <- df 
+# newdf$HC_type <- as.character(newdf$HC_type)
+# 
+# newdf <- newdf %>% 
+#   mutate(HC_type = ifelse(is.na(HC_type), "No", HC_type))
+# 
+# newdf$HC_type <- as.factor(newdf$HC_type)
+# 
+# df$Menstrual_phase <- as.factor(df$Menstrual_phase)
+# df$id <- as.factor(df$id)
+# 
+# #fix levels
+# levels(newdf$HC_type)
+# newdf$HC_type <- factor(df$HC_type, levels = c("No", "P-piller", "Mini-piller", "Hormonspiral", "P-ring", "P-stav"))
+# 
+# 
+# 
+# simple_rt_m <- glmer(RT ~ 1 + HC_use + (1 | Menstrual_phase) + (1 | Menstrual_phase:id), data = df, family=inverse.gaussian)
+# 
+# 
+# task_rt_m <- glmer(Scaled_RT ~ 1 + HC_use + Task + (1 +Task | Menstrual_phase) + (1 |  Menstrual_phase:id), nAGQ = 0, data = df, family=inverse.gaussian)
+# 
+# 
+# 
+# summary(task_rt_m)
+# 
+# # tt <- getME(task_rt_m,"theta")
+# # ll <- getME(task_rt_m,"lower")
+# # min(tt[ll==0])
+# 
+# s1 <- glmer(Scaled_RT ~ 1 + HC_use + Task + Education + (1 |Menstrual_phase) + (1 |Menstrual_phase:id), data = df, family=inverse.gaussian(link = identity))
+# 
+# s1 <- lmer(RT ~ 1 + HC_use + Task + Education + Social_setting +(1|Menstrual_phase) + (1 |Menstrual_phase:id), data = df)
+# 
+# s2 <- lmer(logRT ~ 1 + HC_type + Task + Education + (1 |Menstrual_phase) + (1 + Task |Menstrual_phase:id), data = newdf)
+#                      
+# summary(s1)
+# 
+# AIC(s1)
+
+
+```
+
+
+
+
+
+```{r}
+# #formula RT model
+# RT <- bf(RT ~ 1 + HC_use + Education + (1| Menstrual_phase) + (1|Menstrual_phase:id))
+# 
+# #get prior
+# get_prior(
+#   RT,
+#   df,
+#   family = lognormal
+# ) #beta, sigma, sd, intercept
+# 
+# #figuring out the informed prior
+# Sd1log = log(97.16 + 34.92) - log(97.16) #non HC Sd1log = log(mean + sd) - log(mean)
+# Sd2log = log(78.53 + 28.50) - log(78.53) #HC users 
+# 
+# sqrt(Sd1log^2 + Sd2log^2) #0.44
+# 
+# log(97.16) - log(78.53) #log(mean) - log(mean) mean parameter of 0.21
+# 
+# mean(log(IQ$RT)) #3.61
+# sd(log(IQ$RT)) #0.87
+# 
+# #set priors 
+# RT_IQ_informed_prior <- c(
+#   prior(normal(3.61, 0.87), class = Intercept),
+#   prior(normal(0.21, 0.44), class = b, coef = HC_useJa), #from the informed prior)
+#   prior(normal(0, .5), class = b, coef = EducationGymnasieluddannelse),
+#   prior(normal(0, .5), class = b, coef = EducationKort),
+#   prior(normal(0, .5), class = b, coef = EducationLang),
+#   prior(normal(0, .5), class = b, coef = EducationMellemlang),
+#   prior(normal(1, .5), class = sd),
+#   prior(normal(1, .5), class = sigma))
+# 
+# 
+# #make the first model
+# RT_IQ_informed_m0 <- brm(
+#   RT,
+#   data = df,
+#   family = lognormal,
+#   prior = RT_IQ_informed_prior,
+#   control = list(
+#     max_treedepth = 10,
+#     adapt_delta = 0.99), #to accomodate divergent errors 
+#   sample_prior = "only", #don't look at the real data yet
+#   chains = 4, #to minimize runtime
+#   cores = 4, #run chains in parallel
+#   file = "testidk"
+# )
+# 
+# 
+# summary(RT_IQ_informed_m0)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
