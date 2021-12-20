@@ -1,0 +1,589 @@
+---
+title: "Bachelor analysis"
+author: "Maria"
+date: "28/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+```
+
+Packages
+
+```{r}
+#load packages
+pacman::p_load(tidyverse, lme4, lmerTest, rethinking)
+
+
+```
+
+Load data
+
+```{r}
+#read experimental data (run in one go)
+setwd("C:/Users/maria/OneDrive/Dokumenter/Uni/Bachelor/Bachelor Analysis/finalpavdata")
+
+pavlovia <- list.files(path = "C:/Users/maria/OneDrive/Dokumenter/Uni/Bachelor/Bachelor Analysis/finalpavdata",  
+                       pattern = "*.csv") %>% 
+  map_df(~read_csv(.))
+```
+
+
+```{r}
+#read survey data
+qual <- read_csv("finalqualdata.csv")  
+
+```
+
+Fix the same IDs occuring for different participants
+
+```{r}
+#check to see if participants have the same id
+# df %>%
+#   group_by(id) %>%
+#   dplyr::summarise(Count = n()) 
+
+
+#16727 -
+#8024 -
+#8083 -
+#1349 -
+
+#13149 has started over 
+
+#separate participants with the same randomly generated ID 
+
+#participant 16727
+id_16727_1 <- pavlovia %>% 
+  filter(id == "16727") %>% 
+  filter(date == "2021-11-04_16h06.00.374") %>% 
+  mutate(id = ifelse(id == 16727, 111111, NA)) #give new id
+
+id_16727_2 <- pavlovia %>% 
+  filter(id == "16727") %>% 
+  filter(date == "2021-10-13_15h58.51.979") %>% 
+  mutate(id = ifelse(id == 16727, 222222, NA)) #give new id
+
+#next participant 8024
+id_8024_1 <- pavlovia %>% 
+  filter(id == "8024") %>% 
+  filter(date == "2021-10-29_07h55.44.902") %>% 
+  mutate(id = ifelse(id == 8024, 333333, NA)) #give new id
+
+id_8024_2 <- pavlovia %>% 
+  filter(id == "8024") %>% 
+  filter(date == "2021-10-25_15h47.07.921") %>% 
+  mutate(id = ifelse(id == 8024, 444444, NA)) #give new id
+
+
+#filter out participants from main dataframe
+pavlovia <- pavlovia %>% 
+  filter(id != 16727) %>% 
+  filter(id != 8024)
+
+#rowbind the data to add the participants again
+pavlovia <- rbind(pavlovia, id_16727_1)
+pavlovia <- rbind(pavlovia, id_16727_2)
+pavlovia <- rbind(pavlovia, id_8024_2)
+pavlovia <- rbind(pavlovia, id_8024_1)
+
+
+#----------
+#again separate participants with the same randomly generated ID but in the qualtrics dataframes
+
+#participant 16727
+qual16727_1 <- qual %>% 
+  filter(id == "16727") %>% 
+  filter(RecordedDate == "2021-11-04 09:35:31") %>% 
+  mutate(id = ifelse(id == 16727, 111111, NA)) #give new id
+
+qual16727_2 <- qual %>% 
+  filter(id == "16727") %>% 
+  filter(RecordedDate == "2021-10-13 08:19:03") %>% 
+  mutate(id = ifelse(id == 16727, 222222, NA)) #give new id
+
+#participant 8024
+qual8024_1 <- qual %>% 
+  filter(id == "8024") %>% 
+  filter(RecordedDate == "2021-10-29 00:59:32") %>% 
+  mutate(id = ifelse(id == 8024, 333333, NA)) #give new id
+
+qual8024_2 <- qual %>% 
+  filter(id == "8024") %>% 
+  filter(RecordedDate == "2021-10-25 08:34:42") %>% 
+  mutate(id = ifelse(id == 8024, 444444, NA)) #give new id
+
+#filter out participants from survey dataframe
+qual <- qual %>% 
+  filter(id != "16727") %>% 
+  filter(id != "8024")
+
+#rowbind the data to add the participants again
+qual <- rbind(qual, qual16727_1)
+qual <- rbind(qual, qual16727_2)
+qual <- rbind(qual, qual8024_1)
+qual <- rbind(qual, qual8024_2)
+
+
+```
+
+Merge data
+
+```{r}
+#merge pavlovia and survey
+merged <- merge(pavlovia, qual)
+
+#filter out false session
+merged <- filter(merged, !EndDate == "2021-10-05 07:12:27")
+
+#read and write the merged dataset
+#write_csv(merged, "merged.csv") 
+#read_csv("merged.csv")
+
+```
+
+Clean dataframe
+
+```{r}
+#read full dataframe
+df <- merged %>% 
+  filter(anagrams != "remove" | is.na(anagrams)) #remove false anagrams while keeping trials without anagrams
+
+
+#remove participants and trials based on exclusion criteria and errors
+df <- subset(df, !is.na(df$RT)) %>% #remove missing reaction times
+  subset(Att_disease != "Ja") %>% #remove attentional disorders
+  subset(Pregnant != "Ja") %>% #remove recent pregnancy 
+  subset(Hormonal_disease != "Ja") %>% #remove hormonal diseases
+  #subset(HC_time != "Under 3 måneder") %>% #done manually below 
+  subset(Age_1 < 40) %>% 
+  subset(Gender != "Mand") %>% 
+  subset(id != 675) %>% #remove the specific participants under 3 months on HC
+  subset(id != 3716) %>% #remove the specific participants under 3 months on HC
+  subset(id != 13149) #remove the specific participants under 3 months on HC
+
+#filter(!str_detect(tolower(HC_time), pattern = "under")) #same problem but the manual solution above works
+
+
+#keep only relevant columns
+df <- subset(df, select = c(id, anagram_answer, RT, anagrams, correct, IQresponse.keys, IQresponse.corr, options, CorrectIQ, Gender, Age_1, HC_use, HC_ever, HC_time, Time_since_use, Previous_HC_Time, HC_type, HC_type_8_TEXT, Brand, Generation, Pregnant, Hormonal_disease, Days_since_last_mens, Length_of_cycle, Prediction_ability_1, Att_disease, Dyslexic, Education, IQ_abilities_1, IQ_abilities_2, IQ_abilities_3, Difficulty_1, Difficulty_2, Social_setting, Height_1, Weight_1, OC_cycle, IUD, IUD_time_1, previous_HC, previous_HC_type, why_change_HC, Previous_HC_cancel, HC_sideeffects, Sexuality, Sexual_orientation, Partner, Children, Psych_comorbidity, Medication_depress, Medication_anxiety, Smoking, Alcohol_use, Alcohol_weekly, Alcohol_craving_1, Alcohol_crav_1, Alcohol_crav_2, Alcohol_crav_3, Alcohol_crav_4, Alcohol_crav_5, Alcohol_crav_6, Alcohol_crav_7, Alcohol_crav_8, Alcohol_crav_9, Alcohol_crav_10, Alcohol_crav_11, Alcohol_crav_12, Alcohol_audit1, Alcohol_audit2,Alcohol_audit3, Alcohol_audit4,Alcohol_audit5,Alcohol_audit6,Alcohol_audit7,Alcohol_audit8,Alcohol_audit9,Alcohol_audit10)) 
+
+
+
+```
+
+Make column for accuracy 
+
+```{r}
+#code accuracy column for both tasks
+df <- df %>% 
+  mutate(anagram_answer = ifelse(is.na(anagram_answer), "wrong", anagram_answer)) %>% #NAs count as wrong answers
+  mutate(anagram_accuracy = ifelse(anagram_answer == correct, 1, 0)) %>% #1 for correct solutions, 0 for incorrect (referring to correct column)
+  mutate(anagram_accuracy = ifelse(anagram_answer == "demoshow", 1, anagram_accuracy)) %>% #accept this as correct
+  mutate(overall_accuracy = anagram_accuracy) %>% #copy the anagram accuracy to the overall accuracy
+  mutate(overall_accuracy = ifelse(is.na(overall_accuracy), IQresponse.corr, anagram_accuracy)) %>% #add the IQ accuracy where we have missing info 
+  mutate(overall_accuracy = ifelse(is.na(overall_accuracy), 0, overall_accuracy))
+
+
+```
+
+Make column for menstrual cycle
+
+```{r}
+#fix class
+df <- df %>% 
+  mutate(Days_since_last_mens = as.numeric(Days_since_last_mens)) %>% #numeric
+  mutate(Length_of_cycle = as.numeric(Length_of_cycle)) #numeric
+         
+#calculate percentage and menstrual phases (rough estimate)
+df <- df %>% 
+  mutate(Percentage_cycle = (Days_since_last_mens/Length_of_cycle)*100) %>% #how far along in menstrual cycle
+  mutate(Menstrual_phase = ifelse(Percentage_cycle >= 0 & Percentage_cycle <= 45, "follicular phase", NA)) %>%  #follicular phase
+  mutate(Menstrual_phase = ifelse(Percentage_cycle > 45 & Percentage_cycle <= 55, "ovulation", Menstrual_phase)) %>%  #ovulation 
+  mutate(Menstrual_phase = ifelse(Percentage_cycle > 55, "luteal phase", Menstrual_phase)) %>%  #luteal phase
+  mutate(Menstrual_phase = ifelse(is.na(Menstrual_phase), "hormonal group", Menstrual_phase)) #add the hormonal group to avoid NAs
+
+#fix HC type currently including previous HC 
+df <- df %>% 
+  mutate(previous_HC_type = ifelse(previous_HC == "Ja", HC_type, NA)) %>% 
+  mutate(HC_type = ifelse(HC_use == "Nej", NA, HC_type)) %>% 
+  mutate(previous_gen = ifelse(HC_ever == "Ja", Generation, NA)) %>% 
+  mutate(Generation = ifelse(HC_use == "Nej", NA, Generation))
+  
+```
+
+Make column for task type
+
+```{r}
+
+df <- df %>% 
+  mutate(Task = ifelse(is.na(anagram_accuracy), "IQ", "anagram")) %>%  #make task column
+  mutate(Dyslexic = ifelse(Dyslexic == "Ja" & Task == "anagram", "remove", Dyslexic)) %>%  #remove dyslecix people in anagram tasks
+  filter(Dyslexic != "remove")
+  
+```
+
+Fix spelling 
+
+```{r}
+#correcting spelling mistakes etc in the brand column
+df$Brand[df$Brand == "2"] <- NA
+df$Brand[df$Brand == "2 gen"] <- NA
+df$Brand[df$Brand == "2 generation"] <- NA
+df$Brand[df$Brand == "2."] <- NA
+df$Brand[df$Brand == "2. generation"] <- NA
+df$Brand[df$Brand == "2 generation Malonetta"] <- "Malonetta"
+df$Brand[df$Brand == "2. generations - Microgyn"] <- "Microgyn"
+df$Brand[df$Brand == "2. generations p-piller (femicept)"] <- "Femicept"
+df$Brand[df$Brand == "2. Generations, Microgyn (Stoppede på p-piller for 6 år siden))"] <- "Microgyn"
+df$Brand[df$Brand == "2. genration Femicept"] <- "Femicept"
+
+df$Brand[df$Brand == "3. generation"] <- NA
+df$Brand[df$Brand == "Anastella"] <- "Anastrella"
+df$Brand[df$Brand == "anastrella"] <- "Anastrella"
+df$Brand[df$Brand == "femicept"] <- "Femicept"
+df$Brand[df$Brand == "cilest"] <- "Cilest"
+
+df$Brand[df$Brand == "Det er over 10 år siden"] <- NA
+df$Brand[df$Brand == "Femicept, Mirabella (2. generation)"] <- "Femicept"
+df$Brand[df$Brand == "fik altid de billigste. ved ikke hvilket mærke det er flere år siden"] <- NA
+df$Brand[df$Brand == "Gestinyl lyder bekendt (mere end 4 år siden)"] <- NA
+df$Brand[df$Brand == "leverette"] <- "Leverette 21"
+df$Brand[df$Brand == "Leverette 21 (indeholder levonorgestrel./ethinylestradiol"] <- "Leverette 21"
+df$Brand[df$Brand == "Leverette 21 Ethinylestr + Levonorgest"] <- "Leverette 21"
+
+df$Brand[df$Brand == "Det billigste på apoteket (forskelligt fra gang til gang)"] <- NA
+df$Brand[df$Brand == "jeg har ingen ide, jeg tog sidst piller for 5 år siden"] <- NA
+df$Brand[df$Brand == "Mercilon / denise / femistad"] <- "Mercilon"
+df$Generation[df$Generation == "Ved ikke"] <- NA
+
+df$HC_type[df$HC_type == "Hvis andet, hvad:"] <- "P-ring" #from assessing submitted answer
+df$IUD[df$IUD == "Ved ikke/kan ikke huske"] <- NA
+
+df$Brand[df$Brand == "malonetta"] <- "Malonetta"
+df$Brand[df$Brand == "Malonetta, 2. generations"] <- "Malonetta"
+df$Brand[df$Brand == "melonetta"] <- "Malonetta"
+df$Brand[df$Brand == "2. generation Malonetta"] <- "Malonetta"
+```
+
+
+Shorten answers
+
+```{r}
+#shorten education names
+df <- df %>% 
+  mutate(Education = ifelse(Education == "Kort videregående uddannelse (fx erhvervsuddannelse på 2 år inkl praktik)", "Kort", Education)) %>% 
+  mutate(Education = ifelse(Education == "Mellemlang videregående uddannelse (fx bachelor)", "Mellemlang", Education)) %>% 
+  mutate(Education = ifelse(Education == "Lang videregående uddannelse (fx kandidat el. PhD)", "Lang", Education)) %>% 
+  mutate(Education = ifelse(Education == "Anden uddannelse (under 2 år)", "Anden kort", Education)) %>% 
+  mutate(Education = as.factor(Education))
+
+#shorten answers
+df <- df %>% 
+  mutate(Social_setting = ifelse(Social_setting == "Nej, jeg sad alene og løste opgaverne", "Nej", "Ja")) %>% 
+  mutate(OC_cycle = ifelse(OC_cycle == "Ja, jeg har taget eller skal tage min p-pille i dag", "Aktiv pille-dag", OC_cycle)) %>% 
+  mutate(OC_cycle = ifelse(OC_cycle == "Nej, jeg holder pause mellem to pakker lige nu", "Pause", OC_cycle)) %>% 
+  mutate(OC_cycle = ifelse(OC_cycle == "Jeg er for nyligt helt stoppet på p-piller", "Pause", OC_cycle)) #feedback fra personen sagde at de lige var stoppet sidste uge
+```
+
+Outliers
+
+```{r}
+#fix class
+df$RT <- as.numeric(df$RT)
+
+#check outliers
+m <- mean(df$RT) #define mean
+sd <- sd(df$RT) #define standard deviation
+
+#calculate outlier limits
+out.u<-m+3*sd #upper boundary
+out.l<-m-3*sd #lower boundary
+
+out.u #upper limit 830
+out.l
+
+
+```
+
+
+Define lower + upper limit and round RT
+
+```{r}
+df <- df %>% 
+  mutate(RT = round(RT, digits = 2)) %>% 
+  #mutate(AVG_IQ_Ability = round(AVG_IQ_Ability, digits = 2)) %>% 
+  subset(RT >= 1) %>% #exclude unrealistic response times
+  mutate(RT = ifelse(RT >= 830, 830, RT)) #define an upper limit and replace values exceeding it 
+  
+```
+
+Fix classes and relevel
+
+```{r}
+
+#fix classes
+df <- df %>% 
+  mutate(HC_use = as.factor(HC_use)) %>% #make into factor
+  mutate(HC_type = as.factor(HC_type)) %>% #make into factor
+  mutate(Task = as.factor(Task))  #make into factor
+
+
+#fix education levels
+df$Education <- factor(df$Education, levels = c("Folkeskole", "Gymnasiel uddannelse", "Anden kort", "Kort", "Mellemlang", "Lang"))
+
+#fix HC levels
+df$HC_use <- factor(df$HC_use, levels = c("Nej", "Ja"))
+
+
+```
+Write and read csv
+
+
+```{r}
+# write.csv(df, "clean_bachelor.csv")
+# 
+# df <- read_csv("clean_bachelor.csv")
+
+
+```
+
+Modelling
+
+```{r}
+#log response time
+df <- df %>%
+  mutate(logRT = log(RT)) %>% 
+  mutate(Age_1 = as.factor(Age_1)) %>% 
+  mutate(OC_cycle = as.factor(OC_cycle))
+#sufficent normality assessed using qq plots and other visual discriptives
+```
+
+Preliminary investigation
+
+```{r}
+#preliminary models
+
+#menstrual phase
+m0_mens <- lmer(logRT ~ 0 + Menstrual_phase +(1|id), data = df)
+
+#social setting
+m0_soc <- lmer(logRT ~ 0 + Social_setting +(1|id), data = df)
+
+#hc type
+m0_type <- lmer(logRT ~ 0 + HC_type +(1|id), data = df)
+```
+
+Response time models (variations run and compared using AIC)
+
+```{r}
+#response time models (perseverance)
+#models commented out failed to converge
+
+
+m1 <- lmer(logRT ~ 1 + HC_use + (1 |id), data = df)
+# m2 <- lmer(logRT ~ 1 + HC_use + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+# m3 <- lmer(logRT ~ 1 + HC_use + (1 |HC_type:id) + (1|HC_type), data = df)
+# m4 <- lmer(logRT ~ 1 + HC_use + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+
+m5 <- lmer(logRT ~ 1 + HC_use + Education + (1 |id), data = df)
+m6 <- lmer(logRT ~ 1 + HC_use + Education + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+# m7 <- lmer(logRT ~ 1 + HC_use + Education + (1 |HC_type:id) + (1|HC_type), data = df)
+# m8 <- lmer(logRT ~ 1 + HC_use + Education + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+
+m9 <- lmer(logRT ~ 1 + HC_use + Age_1 + (1 |id), data = df)
+m10 <- lmer(logRT ~ 1 + HC_use + Age_1 + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+# m11 <- lmer(logRT ~ 1 + HC_use + Age_1 + (1 |HC_type:id) + (1|HC_type), data = df)
+# m12 <- lmer(logRT ~ 1 + HC_use + Age_1 + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+
+m13 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + (1 |id), data = df)
+m14 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+# m15 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + (1 |HC_type:id) + (1|HC_type), data = df)
+# m16 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+
+m17 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting +(1 |id), data = df)
+m18 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting +(1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+# m19 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting + (1 |HC_type:id) + (1|HC_type), data = df)
+# m20 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+
+m21 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + Task + (1 |id), data = df)
+m22 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+# m23 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + Task + (1 |HC_type:id) + (1|HC_type), data = df)
+# m24 <- lmer(logRT ~ 1 + HC_use + Education + Social_setting + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+
+m25 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting + Task +(1 |id), data = df)
+m26 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting + Task +(1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+# m27 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting + Task + (1 |HC_type:id) + (1|HC_type), data = df)
+# m28 <- lmer(logRT ~ 1 + HC_use + Age_1 + Social_setting +Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+
+m29 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 |id), data = df)
+m30 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+# m31 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 |HC_type:id) + (1|HC_type), data = df)
+# m32 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+
+m33 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 |id), data = df)
+m34 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+# m35 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 |HC_type:id) + (1|HC_type), data = df)
+# m36 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 |Menstrual_phase:id) + (1|Menstrual_phase) + (1 |HC_type:id) + (1|HC_type), data = df)
+
+
+m37 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 + Task |id), data = df)
+m38 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 + Task |Menstrual_phase:id) + (1|Menstrual_phase), data = df) #best model 
+# m39 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 + Task |HC_type:id) + (1|HC_type), data = df)
+# m40 <- lmer(logRT ~ 1 + HC_use + Education + Task + (1 + Task |Menstrual_phase:id) + (1|Menstrual_phase) + (1 + Task |HC_type:id) + (1|HC_type), data = df)
+
+
+m41 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 + Task |id), data = df)
+m42 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 + Task |Menstrual_phase:id) + (1|Menstrual_phase), data = df)
+# m43 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 + Task |HC_type:id) + (1|HC_type), data = df)
+# m44 <- lmer(logRT ~ 1 + HC_use + Age_1 + Task + (1 + Task |Menstrual_phase:id) + (1|Menstrual_phase) + (1 + Task |HC_type:id) + (1|HC_type), data = df)
+
+#AIC() best performing is m38
+
+# #variations of the best model:
+# m38.1 <- lmer(logRT ~ 1 + HC_type + Education + Task +(1 + Task |Menstrual_phase:id) + (1|Menstrual_phase), data = df) #HC type
+# 
+# m38.2 <- lmer(logRT ~ 1 + HC_use*Social_setting + Education + Task + (1 + Task |Menstrual_phase:id) + (1|Menstrual_phase), data = df) #interaction 
+
+#m38 still the best
+
+```
+
+Accuracy model similar to the perseverance model
+```{r}
+#accuracy
+m38_accuracy <- glmer(overall_accuracy ~ 1 + HC_use + Education + Task + (1 + Task |id), data = df, family = binomial (link = logit), control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5))) #nested effect removed because it was too complex
+
+
+```
+
+
+Additional Analyses (post hoc)
+
+```{r}
+#investigations on HC time for combination pills and iud
+
+
+#OC combination pill time
+oc <- df %>% #make relevant subset
+  subset(OC_cycle != is.na(OC_cycle))
+
+#fix HC levels
+oc$HC_time <- factor(oc$HC_time, levels = c("Mellem 3 og 6 måneder", "Mellem 6 måneder og 1 år", "1-3 år", "Mere end 3 år"))
+
+#RT model
+m_octime <- lmer(logRT ~ 1 +OC_cycle + HC_time + Task +(1|Education) +(1 + Task |Education:id), data = df)
+summary(m_octime)
+
+#accuracy for OC combination pill
+m_octime_a <- glmer(overall_accuracy ~ 1 +OC_cycle + HC_time + Task +(1|Education) +(1 + Task |Education:id), data = oc, family = binomial)
+summary(m_octime_a)
+
+
+#IUD time
+iud <- df %>% 
+  subset(IUD != is.na(IUD)) #subset relevant data
+
+iud$IUD_time_1 <- as.numeric(iud$IUD_time_1) #fix class
+iud$IUD[iud$IUD == "Ved ikke/kan ikke huske"] <- NA #make NA
+
+#RT model
+m_iudtime <- lmer(logRT ~ 1 + IUD +IUD_time_1 + Task + (1|Education) +(1 + Task |Education:id), data = iud)
+summary(m_iudtime)
+
+#accuracy for IUD
+m_iudtime_a <- glmer(overall_accuracy ~ 1 + IUD +IUD_time_1 + Task + (1|Education) +(1 + Task |Education:id), data = iud, family = binomial)
+summary(m_iudtime_a)
+
+```
+
+Plotting
+
+```{r}
+#plotting
+
+#boxplots
+df %>% 
+  ggplot() +
+  aes(x = Education, y = RT, color = HC_use) +
+  geom_boxplot() +
+  theme_minimal() +
+  scale_color_brewer(palette="Accent")
+
+df %>% 
+  ggplot() +
+  aes(x = HC_use, y = RT, fill = Task) +
+  geom_boxplot() +
+  theme_minimal() +
+  scale_fill_brewer(palette="YIGnBu") +
+  labs(x = 'Hormonal Contraceptive Use', y = 'Response Time (seconds)', fill = 'Task Type')
+
+oc %>% 
+  ggplot() +
+  aes(x = HC_time, y = RT, color = HC_time) +
+  geom_boxplot() +
+  theme_minimal() 
+
+
+#bar plot overall
+#perseverance
+ggplot(df, aes(x = Task, y = logRT, fill = HC_use))+
+  geom_bar(stat = 'summary', fun.y = mean, width = 0.4, position = 'dodge')+
+  geom_errorbar(stat = 'summary', fun.data = mean_se, width = 0.4, position = 'dodge2')+
+  labs(x = 'Task Type', y = 'Mean Logged Response Time', fill = 'Group')+
+  scale_fill_brewer(palette = 'Greens')+ #YIOrRd
+  scale_y_continuous(breaks = pretty_breaks())+
+  ggtitle('Perseverance Investigation') +
+  theme_minimal()
+
+#performance
+ggplot(df, aes(x = Task, y = overall_accuracy, fill = HC_use))+
+  geom_bar(stat = 'summary', fun.y = mean, width = 0.4, position = 'dodge')+
+  geom_errorbar(stat = 'summary', fun.data = mean_se, width = 0.4, position = 'dodge2')+
+  labs(x = 'Task Type', y = 'Proportion of Correct Answers', fill = 'Group')+
+  scale_fill_brewer(palette = 'BuPu')+ #YIOrRd
+  scale_y_continuous(breaks = pretty_breaks())+
+  ggtitle('Performance Investigation') +
+  theme_minimal()
+
+
+
+#bar plot oc
+#performance
+ggplot(oc, aes(x = Task, y = RT, fill = HC_time))+
+  geom_bar(stat = 'summary', fun.y = mean, width = 0.5, position = 'dodge')+
+  geom_errorbar(stat = 'summary', fun.data = mean_se, width = 0.5, position = 'dodge2')+
+  labs(x = 'Task Type', y = 'Mean Response Time (seconds)', fill = 'Time on Combination Pills')+
+  scale_fill_brewer(palette = 'Accent')+ #BuGn?
+  scale_y_continuous(breaks = pretty_breaks())+
+  ggtitle(' ') +
+  theme_minimal()
+
+
+#line plot for IUD
+as.factor(iud$id)
+
+ggplot(iud, aes(IUD_time_1, RT, color = IUD)) + 
+  geom_smooth(method = lm, alpha = 0.2) + 
+  geom_point() +
+  scale_color_brewer(palette = 'Greens')+
+  labs(x = 'Time since insertion (months)', y = 'Response Time (seconds)', color = 'Type of IUD')+
+  theme_minimal()
+
+
+```
+
+
+
+
+
+
